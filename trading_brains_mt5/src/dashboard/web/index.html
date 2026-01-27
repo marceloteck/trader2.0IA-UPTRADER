@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Trading Brains Dashboard</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Trading Brains Dashboard</h1>
+      <div id="status" class="card"></div>
+      <div id="live-warning" class="warning"></div>
+      <button id="refresh">Atualizar</button>
+      <div class="grid">
+        <div class="card">
+          <h2>Placar dos Cérebros</h2>
+          <pre id="scoreboard"></pre>
+        </div>
+        <div class="card">
+          <h2>Regime Atual</h2>
+          <pre id="regime"></pre>
+        </div>
+        <div class="card">
+          <h2>Risco</h2>
+          <pre id="risk"></pre>
+        </div>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <h2>Últimos Sinais</h2>
+          <pre id="signals"></pre>
+        </div>
+        <div class="card">
+          <h2>Últimos Trades</h2>
+          <pre id="trades"></pre>
+        </div>
+        <div class="card">
+          <h2>Níveis</h2>
+          <pre id="levels"></pre>
+        </div>
+      </div>
+    </div>
+    <script src="app.js"></script>
+  </body>
+</html>
