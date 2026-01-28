@@ -1,0 +1,377 @@
+"""
+V5_OPERATIONS.txt - Quick Operations Guide
+
+Fast reference for deploying and running V5 system.
+"""
+
+════════════════════════════════════════════════════════════════════════════════
+                        V5 OPERATIONS QUICK GUIDE
+════════════════════════════════════════════════════════════════════════════════
+
+INITIAL SETUP (First Time)
+──────────────────────────
+
+1. Clone repository
+   git clone <repo> && cd trading_brains_mt5
+
+2. Run installer
+   INSTALL.bat
+   [Creates venv, installs deps, init DB]
+   [Takes 2-3 minutes]
+
+3. Run setup wizard
+   SETUP_WIZARD.bat
+   [Interactive: asks for symbol, risk, limits]
+   [Generates .env automatically]
+   [Tests MT5 connection]
+
+4. Validate installation
+   RUN_HEALTHCHECK.bat
+   [Should show: ✅ Database OK, ✅ MT5 Connected, ✅ Symbol available]
+
+5. Run test suite
+   RUN_TESTS.bat
+   [Should show: passed N tests]
+
+Result: System ready for paper trading
+
+════════════════════════════════════════════════════════════════════════════════
+
+PAPER TRADING (Mandatory 8+ hours)
+──────────────────────────────────
+
+Purpose: Validate system works correctly before using real money
+
+1. Start paper trading
+   RUN_LIVE_SIM.bat
+   [Runs indefinitely, auto-restarts on crash]
+
+2. Monitor first hour
+   - Check logs: data/logs/app.log
+   - Look for: Order placements, fills
+   - Should see entries every few minutes
+
+3. Leave running 8+ hours
+   - System will place trades based on market conditions
+   - Verify: SL/TP levels correct in MT5
+   - Check: Daily report after first day (RUN_MAINTENANCE.bat → option 5)
+
+4. Validate results
+   - Win rate should be > 40%
+   - No errors in logs (search for "ERROR")
+   - Divergence count: 0 (position reconciliation OK)
+   - P&L makes sense (proportional to trades)
+
+5. When ready
+   - Proceed to live trading setup (next section)
+   - Or adjust risk parameters and retry
+
+════════════════════════════════════════════════════════════════════════════════
+
+LIVE TRADING ACTIVATION (3 Steps)
+──────────────────────────────────
+
+⚠️  CRITICAL: Only after 8+ hours successful paper trading
+
+Step 1: Create Confirmation File
+   Windows CMD:
+   mkdir data
+   echo. > data\LIVE_OK.txt
+   
+   Windows PowerShell:
+   New-Item -Path data -Name LIVE_OK.txt -ItemType File
+
+Step 2: Update Configuration
+   Edit .env file:
+   
+   Change:  LIVE_MODE=SIM
+   To:      LIVE_MODE=REAL
+   
+   Verify:
+   - RISK_PER_TRADE (e.g., 1.0)
+   - DAILY_LOSS_LIMIT (e.g., 2.0)
+   - MAX_TRADES_PER_DAY (e.g., 10)
+
+Step 3: Start System
+   RUN_PRODUCTION.bat
+   
+   [Will check for LIVE_OK.txt]
+   [Will validate MT5 connection]
+   [Will start trading in REAL mode]
+
+════════════════════════════════════════════════════════════════════════════════
+
+DAILY OPERATIONS
+────────────────
+
+MORNING (Market Open)
+│
+├─ 08:00 - Start system
+│  └─ RUN_PRODUCTION.bat
+│
+├─ 08:05 - Quick validation
+│  └─ RUN_HEALTHCHECK.bat
+│  [Should show: ✅ all systems]
+│
+└─ 08:10 - Monitor first trades
+   [Watch data/logs/app.log for 5 minutes]
+   [Should see order placements]
+
+MIDDAY (Active Trading)
+│
+└─ Every 2 hours - Status check
+   [Optional: RUN_HEALTHCHECK.bat]
+   [Check: No stuck orders in MT5]
+   [Check: Margin < 30%]
+
+EVENING (Pre-Close)
+│
+├─ 17:00 - Review day
+│  [Check: Open positions reasonable]
+│  [Check: No large losses]
+│
+└─ 22:00 - End-of-day maintenance
+   RUN_MAINTENANCE.bat
+   [Select: 5 (daily-report)]
+   [Review: data/exports/reports/YYYY-MM-DD_summary.txt]
+   [Note: Win rate, P&L, errors]
+
+════════════════════════════════════════════════════════════════════════════════
+
+MAINTENANCE SCHEDULE
+────────────────────
+
+DAILY
+─────
+Time:   22:00 (after market close)
+Task:   RUN_MAINTENANCE.bat
+        Option 5: daily-report
+        Generates: data/exports/reports/YYYY-MM-DD_summary.txt
+
+WEEKLY (Sunday)
+───────────────
+Time:   20:00
+Tasks:  1. RUN_MAINTENANCE.bat
+           Option 1: integrity-check
+           Option 2: backup-db
+           Option 3: VACUUM
+        2. RUN_MAINTENANCE.bat
+           Option 6: weekly-report
+        3. Review: data/exports/reports/YYYY-W*_weekly_report.json
+
+MONTHLY (Last day of month)
+────────────────────────────
+Tasks:  1. Review all weekly reports
+        2. Archive old logs: RUN_MAINTENANCE.bat → option 4
+        3. Check backup count: 4+ should exist
+        4. Update risk parameters if needed
+
+════════════════════════════════════════════════════════════════════════════════
+
+EMERGENCY PROCEDURES
+────────────────────
+
+SYSTEM NOT RESPONDING (Watchdog Timeout)
+─────────────────────────────────────────
+Symptom:  No new orders for 30+ seconds
+Solution:
+1. System auto-restarts (handled)
+2. If manual restart needed:
+   taskkill /F /IM python.exe
+   RUN_PRODUCTION.bat
+
+ORDER STUCK IN MT5
+──────────────────
+Symptom:  Order showing in MT5 but system thinks closed
+Solution:
+1. Create pause file:
+   echo. > data\PAUSE.txt
+
+2. Manually close order in MT5 terminal
+
+3. Check position tracker:
+   [system will auto-reconcile on next loop]
+
+4. Delete pause file:
+   del data\PAUSE.txt
+
+DATABASE CORRUPTED
+──────────────────
+Symptom:  "database disk image malformed" in logs
+Solution:
+1. Stop trading:
+   echo. > data\STOP.txt
+
+2. Run integrity check:
+   RUN_MAINTENANCE.bat
+   Option 1: integrity-check
+
+3. If FAILED, restore from backup:
+   - Find latest: data/db/backups/trading_*.db
+   - Copy to: data/db/trading.db
+   - Overwrite: Yes
+
+4. Restart:
+   del data\STOP.txt
+   RUN_PRODUCTION.bat
+
+MT5 DISCONNECTED
+────────────────
+Symptom:  "MT5 not connected" in logs
+Solution:
+1. Check MT5 terminal manually
+   - Is MT5 running?
+   - Is account logged in?
+   - Can you see current price?
+
+2. Restart MT5 terminal
+
+3. Wait 60 seconds (auto-reconnect)
+
+4. If still fails:
+   RUN_HEALTHCHECK.bat
+   [Will show error details]
+
+MARGIN CALL
+───────────
+Symptom:  Orders rejected with "insufficient funds"
+Solution:
+1. System triggers PAUSE automatically (safe)
+
+2. Check account balance in MT5
+
+3. Options:
+   a) Deposit funds (if live account)
+   b) Reduce RISK_PER_TRADE in .env (to 0.5%)
+   c) Wait for profitable trades to recover
+   d) Pause trading and review
+
+4. Resume:
+   [System auto-resumes when margin OK]
+
+════════════════════════════════════════════════════════════════════════════════
+
+USEFUL COMMANDS
+───────────────
+
+System Info
+└─ python -m src.main healthcheck
+
+Database Operations
+├─ python -m src.main init-db              (initialize)
+├─ python -m src.main integrity-check      (verify)
+├─ python -m src.main backup-db            (manual backup)
+└─ python -m src.main maintenance          (backup + VACUUM + logs)
+
+Reports
+├─ python -m src.main daily-report         (today's stats)
+├─ python -m src.main weekly-report        (7-day stats)
+├─ python -m src.main export-audit         (JSON trail)
+└─ RUN_MAINTENANCE.bat                     (interactive menu)
+
+Logs
+├─ tail -f data/logs/app.log               (live monitoring)
+├─ grep ERROR data/logs/app.log            (find errors)
+└─ RUN_MAINTENANCE.bat → option 4          (log rotation)
+
+Manual Controls
+├─ echo. > data\PAUSE.txt                  (pause trading)
+├─ del data\PAUSE.txt                      (resume trading)
+├─ echo. > data\STOP.txt                   (hard stop + exit)
+└─ del data\LIVE_OK.txt                    (disable real mode)
+
+════════════════════════════════════════════════════════════════════════════════
+
+TROUBLESHOOTING TREE
+────────────────────
+
+Is system running?
+│
+├─ NO → Check error in logs: data/logs/app.log
+│       └─ If "ERROR": Restart RUN_PRODUCTION.bat
+│
+├─ YES but no trades
+│       ├─ Market hours? (Check MT5 terminal)
+│       ├─ Symbol in watchlist? (Add to MT5)
+│       └─ Brains disabled? (Check .env)
+│
+├─ YES but losing money
+│       ├─ Reduce RISK_PER_TRADE
+│       ├─ Review brains (brain scores in audit trail)
+│       └─ Check regime (is market trending or ranging?)
+│
+└─ YES but slow/frozen
+        ├─ Check database size: ls -lh data/db/trading.db
+        ├─ If > 1GB: Run VACUUM (RUN_MAINTENANCE.bat → option 3)
+        └─ Check logs for errors
+
+════════════════════════════════════════════════════════════════════════════════
+
+DOCUMENTATION REFERENCES
+─────────────────────────
+
+Topic                          File
+────────────────────────────────────────────────────
+Troubleshooting                docs/RUNBOOK.md
+Pre-live & operational         docs/PRODUCTION_CHECKLIST.md
+System architecture            README.md
+Configuration                 .env.example
+Error codes + recovery         docs/RUNBOOK.md (table)
+Setup & quick start            This file + SETUP_WIZARD.bat
+Component details              V4_IMPLEMENTATION_COMPLETE.txt
+Version info                   V5_FINAL_SUMMARY.txt
+
+════════════════════════════════════════════════════════════════════════════════
+
+CONTACT & SUPPORT
+─────────────────
+
+For issues, check in order:
+1. docs/RUNBOOK.md (error code lookup + solutions)
+2. data/logs/app.log (last 20 lines)
+3. data/exports/reports/ (daily summary for context)
+4. V4_QUICK_START.md (configuration help)
+
+If still stuck:
+- Export audit trail: python -m src.main export-audit
+- Review decision context in exported JSON
+- Check margin/balance in MT5
+- Verify timeframes match configuration
+
+════════════════════════════════════════════════════════════════════════════════
+
+QUICK REFERENCE CARD
+────────────────────
+
+┌─────────────────────────────────────────────────────┐
+│ DAILY CHECKLIST                                     │
+├─────────────────────────────────────────────────────┤
+│ ☐ 08:00  RUN_PRODUCTION.bat                         │
+│ ☐ 08:05  RUN_HEALTHCHECK.bat                        │
+│ ☐ 12:00  Check logs (no errors)                     │
+│ ☐ 16:00  Verify no stuck orders                     │
+│ ☐ 22:00  RUN_MAINTENANCE.bat → daily-report         │
+│ ☐ 22:30  Review report (P&L, win rate, errors)      │
+└─────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────┐
+│ WEEKLY CHECKLIST                                    │
+├─────────────────────────────────────────────────────┤
+│ ☐ Mon  RUN_MAINTENANCE.bat → integrity-check        │
+│ ☐ Wed  Review weekly report                         │
+│ ☐ Fri  Backup verification (4+ exist)               │
+│ ☐ Sun  VACUUM & log rotation                        │
+└─────────────────────────────────────────────────────┘
+
+════════════════════════════════════════════════════════════════════════════════
+
+STATUS: ✅ Ready to Deploy
+
+You are ready to:
+1. Install: INSTALL.bat
+2. Configure: SETUP_WIZARD.bat
+3. Trade: RUN_PRODUCTION.bat
+
+Good luck! 📈
+
+════════════════════════════════════════════════════════════════════════════════

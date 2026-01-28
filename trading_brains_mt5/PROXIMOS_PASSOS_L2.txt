@@ -1,0 +1,264 @@
+INSTRUÇÕES PARA PRÓXIMOS PASSOS
+====================================================================
+Level 2 - Após validação com MT5 aberto
+====================================================================
+
+STATUS ATUAL:
+  - Level 2 completamente implementado
+  - Validado com MT5 aberto (7/8 testes PASS)
+  - Pronto para ativação em produção
+
+====================================================================
+PASSO 1: ATIVAR LEVEL 2 (quando decidir)
+====================================================================
+
+Edite: src/config/settings.py
+
+Mude de:
+```python
+CALIBRATION_ENABLED = False
+ENSEMBLE_ENABLED = False
+CONFORMAL_ENABLED = False
+UNCERTAINTY_GATE_ENABLED = False
+```
+
+Para:
+```python
+CALIBRATION_ENABLED = True
+ENSEMBLE_ENABLED = True
+CONFORMAL_ENABLED = True
+UNCERTAINTY_GATE_ENABLED = True
+```
+
+Salve e pronto! L2 estará ativo.
+
+====================================================================
+PASSO 2: TESTAR EM MODO SIMULADOR (recomendado)
+====================================================================
+
+Execute: RUN_LIVE_SIM.bat
+
+Isto:
+  - Conecta ao MT5
+  - Executa trading SEM dinheiro real
+  - Bloqueia trades com lógica do Uncertainty Gate
+  - Loga eventos em gate_events table
+  - Salva métricas em calibration_reports
+
+Monitore:
+  - Console output para avisos de gate
+  - Database em sqlite (se usar local storage)
+  - Número de trades bloqueados vs executados
+
+====================================================================
+PASSO 3: REVISAR DOCUMENTAÇÃO
+====================================================================
+
+Arquivos de referência criados:
+
+1. LEVEL2_QUICK_REFERENCE.md
+   - Exemplos prontos para copiar/colar
+   - Configurações mais usadas
+   - Troubleshooting rápido
+   - Tempo de leitura: ~15 minutos
+
+2. LEVEL2.md
+   - Documentação técnica completa
+   - Explicação de cada módulo
+   - Tuning e parâmetros avançados
+   - Casos de uso e exemplos
+   - Tempo de leitura: ~45 minutos
+
+3. MASTER_INDEX_L2_PHASE2B.md
+   - Índice de navegação
+   - Links para todos os recursos
+   - Learning paths (iniciante/avançado)
+
+====================================================================
+PASSO 4: CONFIGURAR PARA SEU ESTILO DE TRADING
+====================================================================
+
+O que você pode customizar:
+
+1. Símbolo Primário
+   settings.PRIMARY_SYMBOL = "EURUSD"  # Mude para seu par
+
+2. Modo de Símbolo
+   settings.SYMBOL_MODE = "SINGLE"     # ou "MULTI"
+
+3. Thresholds do Gate
+   settings.MAX_MODEL_DISAGREEMENT = 0.25    # Quão rigoroso?
+   settings.MIN_GLOBAL_CONFIDENCE = 0.55     # Mínimo de confiança
+   settings.MAX_PROBA_STD = 0.3              # Máximo std de prob
+
+4. Ensemble Voting
+   settings.ENSEMBLE_VOTING_MODE = "SOFT"    # ou "WEIGHTED"
+
+5. Conformal Coverage
+   settings.CONFORMAL_ALPHA = 0.1            # Coverage = 90%
+
+Detalhes em: LEVEL2_QUICK_REFERENCE.md
+
+====================================================================
+PASSO 5: MONITORAR EM PRODUÇÃO
+====================================================================
+
+Quando usar RUN_LIVE_REAL.bat, monitore:
+
+1. Gate Events
+   Veja quantos trades foram bloqueados:
+   SELECT COUNT(*) FROM gate_events 
+   WHERE reason != 'ALLOW'
+
+2. Calibration Reports
+   Verifique acurácia das probabilidades:
+   SELECT * FROM calibration_reports 
+   ORDER BY created_at DESC LIMIT 1
+
+3. Ensemble Metrics
+   Analise discordância entre modelos:
+   SELECT AVG(disagreement_score) 
+   FROM ensemble_metrics
+
+4. Console Logs
+   Avisos de gate aparecem no console:
+   "Gate BLOCKED: ensemble disagreement 0.30 > 0.25"
+
+====================================================================
+PASSO 6: INTEGRAÇÃO COM SISTEMA (Opcional - Phase 2C)
+====================================================================
+
+Se quiser integração deeper (Phase 2C):
+
+Arquivos que precisam de integração:
+  - src/live/runner.py (adicionar 80 linhas)
+  - src/brains/meta_brain.py (adicionar 100 linhas)
+  - src/models/supervised.py (adicionar 50 linhas)
+  - src/mt5/mt5_client.py (adicionar 100 linhas)
+  - src/dashboard/api.py (adicionar 150 linhas)
+
+Todos os pontos de integração estão mapeados em:
+LEVEL2_PHASE2B_COMPLETE.md (seção "Integration Points")
+
+====================================================================
+PASSO 7: TROUBLESHOOTING
+====================================================================
+
+Se tiver problemas:
+
+1. "Gate bloqueando todo trade"
+   Solução: Reduzir MAX_MODEL_DISAGREEMENT em settings.py
+   Default: 0.25 -> Tente: 0.35
+
+2. "Nenhum ensemble disagreement calculado"
+   Solução: Verificar se ENSEMBLE_ENABLED = True
+   Verificar se ensemble está sendo treinado
+
+3. "Database error: no such table"
+   Solução: Deletar arquivo .db antigo
+   Sistema recria automaticamente na próxima execução
+
+4. "MT5 connection fails"
+   Solução: Abrir MetaTrader 5
+   Permitir conexão no firewall do MT5
+
+5. "Conformal prediction dando erro"
+   Solução: Revisar input format
+   Deve ser: (n_samples, 2) ou (n_samples,)
+
+Detalhes em: LEVEL2.md (seção "Troubleshooting")
+
+====================================================================
+PASSO 8: CHECKPOINTS DE VALIDAÇÃO
+====================================================================
+
+Para validar que L2 está funcionando:
+
+Checkpoint 1: System Initialized
+  ✓ Log mostra: "SymbolManager initialized"
+  ✓ Log mostra: "UncertaintyGate initialized"
+
+Checkpoint 2: Models Loaded
+  ✓ Log mostra: "Ensemble trained"
+  ✓ Log mostra: "Conformal threshold set"
+
+Checkpoint 3: Gate Decision
+  ✓ Log mostra: "Gate ALLOW: signal 0.8..."
+  ✓ Ou "Gate BLOCKED: ..."
+
+Checkpoint 4: Trades Executed
+  ✓ Tabela trades_log mostra operações
+  ✓ Tabela gate_events mostra bloqueios
+
+Checkpoint 5: Calibration Improved
+  ✓ calibration_reports mostra ECE < 0.15
+  ✓ Probabilidades calibradas (mais acuradas)
+
+====================================================================
+TIMELINE ESTIMADO
+====================================================================
+
+Ativação L2:                    5 minutos
+Teste em modo simulador:        30 minutos
+Review de documentação:         1 hora (opcional)
+Customização para seu estilo:   30 minutos
+Primeira execução em produção:  Seu timing
+
+Total preparação:               ~2 horas
+Tempo para "live real" seguro:  ~1 dia (recomendado)
+
+====================================================================
+RECURSOS ÚTEIS
+====================================================================
+
+Quick Start:
+  1. Leia NIVEL2_VALIDACAO_EXECUTIVA.txt (2 min)
+  2. Leia LEVEL2_QUICK_REFERENCE.md (15 min)
+  3. Edite settings.py com sua config (5 min)
+  4. Execute RUN_LIVE_SIM.bat (30 min)
+
+Deep Dive:
+  1. Leia LEVEL2.md (45 min)
+  2. Estude exemplos de código (20 min)
+  3. Revise MASTER_INDEX_L2_PHASE2B.md (10 min)
+  4. Customize thresholds baseado em backtest
+
+Production Deployment:
+  1. Run backtest com L2 ativado
+  2. Validar com RUN_LIVE_SIM.bat
+  3. Review logs de gate_events
+  4. Check calibration_reports accuracy
+  5. Deploy RUN_LIVE_REAL.bat
+
+====================================================================
+CONTATO & SUPORTE
+====================================================================
+
+Documentação completa:
+  - LEVEL2.md (5,500 linhas)
+  - LEVEL2_QUICK_REFERENCE.md (350 linhas)
+  - LEVEL2_PHASE2B_COMPLETE.md (600 linhas)
+  - DELIVERY_SUMMARY_L2_PHASE2B.md (650 linhas)
+  - MASTER_INDEX_L2_PHASE2B.md (600 linhas)
+
+Todos os arquivos estão no diretório principal:
+  c:\Users\Nanosistecck\Documents\GitHub\trader2.0IA-UPTRADER\trading_brains_mt5\
+
+====================================================================
+PRÓXIMAS FASES
+====================================================================
+
+Phase 2C (Optional):
+  - Integração com runner.py e meta_brain.py
+  - Dashboard endpoints para L2
+  - Advanced monitoring and logging
+
+Phase 3:
+  - ML model improvements baseado em L2 data
+  - Additional statistical tests
+  - Ensemble expansion (mais modelos)
+
+====================================================================
+Pronto para começar? Siga PASSO 1 acima!
+Dúvidas? Verifique PASSO 7 (Troubleshooting)
+====================================================================

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple, Union
+import logging
 
 import pandas as pd
 
 from ..config.constants import DEFAULT_WEIGHTS
+from ..config.settings import load_settings
+from ..features.regime_transition import RegimeState
 from .brain_interface import Brain, BrainSignal, Context, Decision
 from .cluster_proxy import ClusterProxyBrain
 from .elliott_prob import ElliottProbBrain
@@ -16,6 +19,10 @@ from .trend_pullback import TrendPullbackBrain
 from .gift import GiftBrain
 from .momentum import MomentumBrain
 from .consolidation_90pts import Consolidation90ptsBrain
+from .cross_market import CrossMarketBrain
+from ..news.news_filter import NewsFilter
+
+logger = logging.getLogger(__name__)
 
 
 class BossBrain:
@@ -32,11 +39,38 @@ class BossBrain:
             LiquidityBrain(),
         ]
         self.weights = weights or DEFAULT_WEIGHTS
+        
+        # Level 6 - Multi-market and news filtering
+        self.settings = load_settings()
+        self.cross_brain = CrossMarketBrain() if self.settings.crossmarket_enabled else None
+        self.news_filter = NewsFilter(
+            enabled=self.settings.news_enabled,
+            mode=self.settings.news_mode,
+            block_minutes_before=self.settings.news_block_minutes_before,
+            block_minutes_after=self.settings.news_block_minutes_after,
+            impact_block=self.settings.news_impact_block,
+            reduce_risk_on_medium=self.settings.news_reduce_risk_on_medium,
+            medium_risk_factor=self.settings.news_medium_risk_factor
+        ) if self.settings.news_enabled else None
 
     def run(self, candles: Union[pd.DataFrame, Dict[str, pd.DataFrame]], context: Context) -> Decision:
         primary = candles if isinstance(candles, pd.DataFrame) else candles.get(context.timeframe)
         if primary is None or primary.empty:
             return Decision("HOLD", 0.0, 0.0, 0.0, 0.0, 0.0, "No candles", [], {})
+        
+        # Level 6: Check news blocking first (priority gate)
+        news_blocked = False
+        news_reason = ""
+        news_risk_factor = 1.0
+        if self.news_filter:
+            is_blocked, reason, event = self.news_filter.is_blocked(context.now)
+            if is_blocked:
+                news_blocked = True
+                news_reason = reason
+                return Decision("HOLD", 0.0, 0.0, 0.0, 0.0, 0.0, f"News block: {reason}", [], {})
+            # Apply risk reduction on medium-impact events
+            news_risk_factor = self.news_filter.get_risk_factor(context.now)
+        
         macro_signal = None
         if isinstance(candles, dict):
             h1 = candles.get("H1")
@@ -60,6 +94,42 @@ class BossBrain:
 
         scored.sort(key=lambda item: item[1], reverse=True)
         signal, score = scored[0]
+        
+        # Level 6: Apply cross-market filtering and correlation checks
+        cross_signal = None
+        cross_metadata = {}
+        if self.cross_brain and isinstance(candles, dict):
+            # Get cross-market data
+            cross_symbols = {}
+            for sym in self.settings.cross_symbols.split(','):
+                sym = sym.strip()
+                if sym in candles:
+                    cross_symbols[sym] = candles[sym]
+            
+            if cross_symbols:
+                metric, cross_signal = self.cross_brain.update(primary, cross_symbols, context.now)
+                if metric:
+                    cross_metadata['metric'] = metric.to_dict()
+                
+                # Apply correlation-based filtering
+                if cross_signal:
+                    cross_metadata['signal'] = cross_signal.to_dict()
+                    
+                    # MARKET_BROKEN: Reduce confidence
+                    if cross_signal.signal_type == 'MARKET_BROKEN':
+                        score *= cross_signal.strength  # Reduce score
+                        logger.warning(f"Correlation break detected: {cross_signal.reasons}")
+                    
+                    # REDUCE_BUY / REDUCE_SELL: Apply caution
+                    elif cross_signal.signal_type in ['REDUCE_BUY', 'REDUCE_SELL']:
+                        score *= 0.7  # 30% confidence reduction
+                        logger.info(f"Cross-market caution: {cross_signal.reasons}")
+                    
+                    # CONFIRM_BUY / CONFIRM_SELL: Boost confidence
+                    elif cross_signal.signal_type in ['CONFIRM_BUY', 'CONFIRM_SELL']:
+                        score *= 1.2  # 20% confidence boost
+                        logger.info(f"Cross-market confirmation: {cross_signal.reasons}")
+        
         if not self._confluence_gate(scored):
             return Decision("HOLD", 0.0, 0.0, 0.0, 0.0, 0.0, "No confluence", [], {})
         if macro_signal and not self._macro_filter(signal, macro_signal):
@@ -69,8 +139,11 @@ class BossBrain:
             return Decision("HOLD", 0.0, 0.0, 0.0, 0.0, 0.0, "Risk reward below minimum", [], {})
         if context.spread > 0 and context.spread >  context.features.get("spread_max", context.spread):
             return Decision("HOLD", 0.0, 0.0, 0.0, 0.0, 0.0, "Spread above limit", [], {})
+        
+        # Apply news risk factor to position sizing
+        risk_per_trade = context.features.get("risk_per_trade", 0.005) * news_risk_factor
         size = self._position_size(
-            context.features.get("risk_per_trade", 0.005),
+            risk_per_trade,
             context.features.get("point_value", 1.0),
             context.features.get("min_lot", 1.0),
             context.features.get("lot_step", 1.0),
@@ -85,11 +158,13 @@ class BossBrain:
             tp1=tp1,
             tp2=tp2,
             size=size,
-            reason=f"Top score {score:.1f}",
+            reason=f"Top score {score:.1f}" + (f" (news risk {news_risk_factor})" if news_risk_factor < 1.0 else ""),
             contributors=contributors,
             metadata={
                 "top_signal": signal.metadata,
                 "macro": macro_signal.metadata if macro_signal else {},
+                "cross_market": cross_metadata,
+                "news_risk_factor": news_risk_factor,
                 "signals": [
                     {"brain_id": s.brain_id, "action": s.action, "score": sc, "metadata": s.metadata}
                     for s, sc in scored

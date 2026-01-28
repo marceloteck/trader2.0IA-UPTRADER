@@ -1,0 +1,369 @@
+🧪 LEVEL 7 - COMPLETE TESTING & VALIDATION GUIDE
+
+═══════════════════════════════════════════════════════════════════════
+
+PREREQUISITES
+
+Before testing, ensure:
+  1. Python 3.8+ installed
+  2. Virtual environment activated
+  3. MT5 (optional, but recommended)
+  4. Dependencies installed (requirements.txt)
+
+═══════════════════════════════════════════════════════════════════════
+
+PART 1: UNIT TESTS
+
+Run automated tests:
+
+  pytest tests/test_l7_dashboard.py -v
+
+Expected output:
+  ✅ test_import - MarketStatusEngine can be imported
+  ✅ test_generate_status_trend_up - TREND_UP scenario
+  ✅ test_generate_status_chaotic - CHAOTIC scenario
+  ✅ test_generate_status_market_broken - Market broken scenario
+  ✅ test_create_tables - L7 database tables created
+  ✅ test_repo_insert_market_status - Repository persistence
+  ✅ test_symbol_manager_import - SymbolManager imported
+  ✅ test_get_set_runtime_symbol - Symbol get/set operations
+  ✅ test_api_imports - API module imports successfully
+
+═══════════════════════════════════════════════════════════════════════
+
+PART 2: INTEGRATION TESTING
+
+Step 1: Start API Server
+
+  cd trading_brains_mt5
+  python -m uvicorn src.dashboard.api:app --reload --port 8000
+
+  Expected output:
+    INFO:     Uvicorn running on http://0.0.0.0:8000
+    INFO:     Application startup complete
+
+Step 2: Open Dashboard
+
+  Browser: http://localhost:8000
+
+  Expected:
+    ✅ Page loads without errors
+    ✅ Symbol dropdown visible
+    ✅ Market status card displays "IA analisando..."
+    ✅ Scoreboard shows "0" values initially
+    ✅ No console errors (F12 → Console)
+
+═══════════════════════════════════════════════════════════════════════
+
+PART 3: SYMBOL SELECTOR TEST
+
+Test Case 1: Load Symbol List
+  1. Open browser console (F12 → Console)
+  2. Observe network tab
+  3. Should see GET /symbols/list request
+  4. Expected response:
+     {
+       "symbols": [...],
+       "current": "WDO$N",
+       "mt5_connected": true
+     }
+
+Test Case 2: Change Symbol
+  1. Click symbol dropdown
+  2. Select different symbol (e.g., "IBOV")
+  3. Observe network tab
+  4. Should see POST /symbols/set request
+  5. Check response: {"status": "ok", ...}
+  6. Verify file created: data/config/runtime_symbol.json
+  7. Reload page → dropdown should remember selection
+
+Test Case 3: Health Badge
+  1. If MT5 online: badge shows "● Conectado" (green)
+  2. If MT5 offline: badge shows "● Desconectado" (red)
+  3. Verify badge updates when MT5 status changes
+
+═══════════════════════════════════════════════════════════════════════
+
+PART 4: SCOREBOARD TEST
+
+Test Case 1: Auto-Refresh
+  1. Open Network tab (F12 → Network)
+  2. Set filter: "scoreboard"
+  3. Watch requests auto-fire every 3 seconds
+  4. Each response should contain:
+     - counters: {buy_signals, sell_signals, hold_signals, ...}
+     - metrics: {pnl_today, dd_today, winrate_today, pf_today}
+     - recent_events: [...]
+
+Test Case 2: Counter Updates
+  1. If you have live trading, counters should increment
+  2. Win/Loss counters should reflect real trades
+  3. PnL and metrics should be calculated correctly
+
+Test Case 3: Recent Events Table
+  1. Should display last 20 events
+  2. Sorted by timestamp (newest first)
+  3. Shows event type and details
+
+═══════════════════════════════════════════════════════════════════════
+
+PART 5: MARKET STATUS TEST
+
+Test Case 1: Status Display
+  1. Observe GET /market-status/current endpoint
+  2. Response should contain:
+     - headline: emoji + status text
+     - phase: trading phase description
+     - risk_state: "OK", "CAUTION", or "BLOCKED"
+     - reasons: list of human-readable factors
+
+Test Case 2: Risk State Colors
+  1. If risk_state = "OK": status card shows green text
+  2. If risk_state = "CAUTION": status card shows orange text
+  3. If risk_state = "BLOCKED": status card shows red text
+  4. CSS class applied: risk-state-ok/caution/blocked
+
+Test Case 3: Headline Interpretation
+  1. 📈 = uptrend
+  2. 📉 = downtrend
+  3. 🔷 = range
+  4. ⚡ = transition
+  5. 🌪️ = chaotic
+  6. 🚨 = market broken
+
+═══════════════════════════════════════════════════════════════════════
+
+PART 6: DATABASE PERSISTENCE TEST
+
+Test Case 1: Check Tables Created
+  1. Open SQLite viewer (or command line)
+  2. Open: data/trading.db
+  3. Should see tables:
+     ✅ market_status_log
+     ✅ ui_events
+     ✅ runtime_symbol_choice
+     (+ many others from L1-L6)
+
+Test Case 2: Market Status Logging
+  1. Each /market-status/current call saves to DB
+  2. Open market_status_log table
+  3. Should see recent entries with:
+     - timestamp
+     - symbol
+     - headline
+     - phase
+     - risk_state
+     - reasons_json
+     - metadata_json
+
+Test Case 3: Event Logging
+  1. Change symbol via dropdown
+  2. Open ui_events table
+  3. Should see entry with:
+     - event_type: "symbol_changed"
+     - payload_json: contains old/new symbol
+     - timestamp
+
+═══════════════════════════════════════════════════════════════════════
+
+PART 7: MT5 OFFLINE TEST
+
+Test Case 1: Stop MT5
+  1. Stop MetaTrader 5
+  2. Wait 10 seconds
+  3. Call /symbols/list endpoint
+  4. Expected response:
+     {
+       "symbols": [],
+       "current": null,
+       "mt5_connected": false,
+       "error": "..."
+     }
+  5. Health badge should show "● Desconectado"
+  6. Dashboard should remain functional
+
+Test Case 2: Graceful Recovery
+  1. Start MT5 again
+  2. Refresh dashboard
+  3. Symbol dropdown should populate
+  4. Health badge should show "● Conectado"
+
+═══════════════════════════════════════════════════════════════════════
+
+PART 8: RESPONSIVE DESIGN TEST
+
+Test Case 1: Desktop View (>768px)
+  1. Open dashboard on desktop/wide screen
+  2. Scoreboard should show 4 columns
+  3. Content should show 3 columns
+  4. All elements properly spaced
+
+Test Case 2: Mobile View (<768px)
+  1. Press F12 → Toggle device toolbar
+  2. Select mobile device (e.g., iPhone 12)
+  3. Scoreboard should show 2 columns
+  4. Content should show 1 column
+  5. Typography should be readable
+  6. Buttons should be clickable
+
+Test Case 3: Tablet View (768px-1024px)
+  1. Select tablet device
+  2. Scoreboard should show 2-4 columns
+  3. Content should show 2 columns
+  4. Layout should be balanced
+
+═══════════════════════════════════════════════════════════════════════
+
+PART 9: ERROR HANDLING TEST
+
+Test Case 1: API Errors
+  1. Stop API server
+  2. Try to refresh dashboard
+  3. Should show graceful error messages
+  4. No JavaScript exceptions
+  5. Page remains usable
+
+Test Case 2: Missing Data
+  1. Clear database
+  2. Call /market-status/current
+  3. Should return fallback message: "❓ Aguardando primeira análise"
+  4. No errors or exceptions
+
+Test Case 3: Invalid Symbol
+  1. Manually POST to /symbols/set with invalid symbol
+  2. Should return error response
+  3. Database should not save invalid entry
+
+═══════════════════════════════════════════════════════════════════════
+
+PART 10: BROWSER CONSOLE TEST
+
+Check for JavaScript Errors:
+  1. Press F12 → Console tab
+  2. Should show NO errors (red)
+  3. May show info/debug messages (blue/gray)
+  4. Check for network errors
+
+Monitor Network Requests:
+  1. Press F12 → Network tab
+  2. Filter: "symbols/list", "symbols/set", "scoreboard", "market-status"
+  3. All requests should return 200 OK
+  4. Response times: <100ms typical
+
+═══════════════════════════════════════════════════════════════════════
+
+PERFORMANCE TESTING
+
+Test Case 1: API Response Time
+  1. Open Network tab
+  2. Check each endpoint:
+     - /symbols/list: ~50ms
+     - /symbols/set: ~50ms
+     - /scoreboard/live: ~70ms
+     - /market-status/current: ~50ms
+
+Test Case 2: Dashboard Load Time
+  1. Hard reload (Ctrl+F5)
+  2. Measure time to interactive: <2s
+
+Test Case 3: Memory Usage
+  1. Open DevTools → Performance → Memory
+  2. Record for 30 seconds
+  3. Check memory stable (no leak): ~30-50MB
+
+═══════════════════════════════════════════════════════════════════════
+
+MANUAL VALIDATION CHECKLIST
+
+Frontend:
+  ☐ Header displays correctly
+  ☐ Symbol dropdown populated and functional
+  ☐ Health badge shows correct status
+  ☐ Market status card displays headline + phase + risk
+  ☐ Scoreboard cards show all counters
+  ☐ Recent events table shows entries
+  ☐ All buttons clickable
+  ☐ No layout issues on desktop/tablet/mobile
+  ☐ Dark theme colors correct
+  ☐ Animations smooth
+
+Backend:
+  ☐ API server starts without errors
+  ☐ All 4 endpoints respond (200 OK)
+  ☐ Error handling works (graceful offline)
+  ☐ Database persistence working
+  ☐ Runtime symbol file created
+  ☐ Logging working (check logs)
+
+JavaScript:
+  ☐ Symbol list loads on page init
+  ☐ Symbol dropdown updates on selection
+  ☐ Scoreboard refreshes every 3 seconds
+  ☐ Market status updates every 3 seconds
+  ☐ Recent events table updates
+  ☐ No console errors
+  ☐ Network requests successful
+
+═══════════════════════════════════════════════════════════════════════
+
+TROUBLESHOOTING
+
+Issue: Symbol dropdown empty
+  ✓ Check MT5 is running
+  ✓ Verify /symbols/list endpoint in network tab
+  ✓ Check browser console for errors
+
+Issue: Scoreboard not updating
+  ✓ Check /scoreboard/live endpoint
+  ✓ Verify database has trade data
+  ✓ Check app.js periodic refresh (3s interval)
+
+Issue: Market status showing "Aguardando análise"
+  ✓ Check /market-status/current endpoint
+  ✓ Verify market_status_log table has entries
+  ✓ Check MarketStatusEngine is being called
+
+Issue: Health badge red (offline) but MT5 is running
+  ✓ Check MT5 connection status
+  ✓ Verify mt5_client initialization
+  ✓ Check /symbols/list response
+
+═══════════════════════════════════════════════════════════════════════
+
+SUCCESS CRITERIA
+
+✅ All unit tests pass
+✅ API responds to all 4 endpoints
+✅ Symbol selection saves and persists
+✅ Scoreboard updates every 3 seconds
+✅ Market status displays correctly
+✅ Database persists all events
+✅ Dashboard works offline gracefully
+✅ Responsive on mobile/tablet/desktop
+✅ No console errors
+✅ Performance metrics within targets
+
+═══════════════════════════════════════════════════════════════════════
+
+QUICK TEST SEQUENCE (5 minutes)
+
+1. Start API: uvicorn src.dashboard.api:app --reload
+2. Open dashboard: http://localhost:8000
+3. Click symbol dropdown → select symbol → verify POST called
+4. Observe scoreboard updates every 3 seconds
+5. Check market status headline + phase + risk
+6. Open database → verify tables exist + data saved
+7. Stop MT5 → verify health badge shows "Desconectado"
+8. Open F12 → Console → verify no errors
+9. Refresh page → symbol selection persists
+
+✅ All passed = Level 7 working correctly!
+
+═══════════════════════════════════════════════════════════════════════
+
+For detailed technical documentation, see:
+  LEVEL_7_README.md - Full reference
+  src/ui/market_status.py - Engine documentation
+  tests/test_l7_dashboard.py - Test examples
+
+═══════════════════════════════════════════════════════════════════════

@@ -8,15 +8,71 @@
   </head>
   <body>
     <div class="container">
-      <h1>Trading Brains Dashboard</h1>
+      <header class="header">
+        <div class="header-top">
+          <h1>📊 Trading Brains Dashboard</h1>
+          <div class="header-controls">
+            <button id="refresh" class="btn-refresh">🔄 Atualizar</button>
+            <button id="kill-btn" class="btn-danger">🛑 Parar</button>
+          </div>
+        </div>
+        
+        <!-- L7: Symbol Selector & Market Status -->
+        <div class="header-row">
+          <div class="symbol-selector">
+            <label>Ativo:
+              <select id="symbol-dropdown">
+                <option value="">Carregando...</option>
+              </select>
+            </label>
+            <span id="symbol-health" class="health-badge">● Conectando</span>
+          </div>
+          
+          <div id="market-status" class="market-status-card">
+            <div class="status-headline" id="status-headline">IA analisando...</div>
+            <div class="status-phase" id="status-phase"></div>
+            <div class="status-risk" id="status-risk"></div>
+          </div>
+        </div>
+      </header>
+      
+      <!-- L7: Live Scoreboard -->
+      <section class="scoreboard-section">
+        <h2>Placar ao Vivo</h2>
+        <div class="scoreboard-grid">
+          <div class="score-card">
+            <div class="score-label">Sinais Hoje</div>
+            <div class="score-buy">📈 <span id="score-buy">0</span></div>
+            <div class="score-sell">📉 <span id="score-sell">0</span></div>
+            <div class="score-hold">⊙ <span id="score-hold">0</span></div>
+          </div>
+          
+          <div class="score-card">
+            <div class="score-label">Trades Hoje</div>
+            <div class="score-total">Total: <span id="score-trades">0</span></div>
+            <div class="score-win">✓ Win: <span id="score-win">0</span></div>
+            <div class="score-loss">✗ Loss: <span id="score-loss">0</span></div>
+          </div>
+          
+          <div class="score-card">
+            <div class="score-label">Bloqueios</div>
+            <div class="score-news">📰 Notícia: <span id="score-news-blocks">0</span></div>
+            <div class="score-corr">📊 Correlação: <span id="score-corr-blocks">0</span></div>
+          </div>
+          
+          <div class="score-card">
+            <div class="score-label">Métricas</div>
+            <div class="score-pnl">PnL: <span id="score-pnl">$0</span></div>
+            <div class="score-wr">WR: <span id="score-wr">0%</span></div>
+            <div class="score-pf">PF: <span id="score-pf">0.0</span></div>
+          </div>
+        </div>
+      </section>
+      
       <div id="status" class="card"></div>
       <div id="live-warning" class="warning"></div>
-      <button id="refresh">Atualizar</button>
+      
       <div class="grid">
-        <div class="card">
-          <h2>Placar dos Cérebros</h2>
-          <pre id="scoreboard"></pre>
-        </div>
         <div class="card">
           <h2>Regime Atual</h2>
           <pre id="regime"></pre>
@@ -25,7 +81,12 @@
           <h2>Risco</h2>
           <pre id="risk"></pre>
         </div>
+        <div class="card">
+          <h2>Status Geral</h2>
+          <pre id="general-status"></pre>
+        </div>
       </div>
+      
       <div class="grid">
         <div class="card">
           <h2>Últimos Sinais</h2>
@@ -39,6 +100,21 @@
           <h2>Níveis</h2>
           <pre id="levels"></pre>
         </div>
+      </div>
+      
+      <!-- L7: Recent Events -->
+      <div class="card">
+        <h2>Eventos Recentes</h2>
+        <table id="recent-events-table">
+          <thead>
+            <tr>
+              <th>Hora</th>
+              <th>Tipo</th>
+              <th>Detalhes</th>
+            </tr>
+          </thead>
+          <tbody id="recent-events"></tbody>
+        </table>
       </div>
     </div>
     <script src="app.js"></script>

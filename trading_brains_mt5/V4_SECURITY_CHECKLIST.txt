@@ -1,0 +1,143 @@
+"""
+V4 SECURITY CHECKLIST
+
+Before running LIVE_REAL.bat, complete this checklist 100%
+"""
+
+════════════════════════════════════════════════════════════════════════════════
+                        PRE-LIVE TRADING CHECKLIST
+════════════════════════════════════════════════════════════════════════════════
+
+STEP 1: UNDERSTANDING & RISK ACKNOWLEDGMENT
+────────────────────────────────────────────
+□ I understand this system CAN LOSE REAL MONEY if misconfigured
+□ I have tested LIVE_SIM for at least 8 continuous hours
+□ I have reviewed all risk limits in .env and they match my risk tolerance
+□ I understand "DAILY_LOSS_LIMIT" - system STOPS at this loss (hard stop)
+□ I understand "DEGRADE" - position size automatically reduces after losses
+□ I understand "CIRCUIT BREAKER" - system pauses on extreme conditions
+
+STEP 2: SYSTEM VALIDATION
+─────────────────────────
+□ Ran INSTALL.bat successfully
+□ Python 3.11+ confirmed: python --version
+□ MT5 terminal is open and connected
+□ Symbol configured and available in MT5 (Tools > Options > Expert)
+□ Data feed is live (check terminal data window)
+□ Network connection is stable (not on wifi, use ethernet if possible)
+
+STEP 3: CONFIGURATION REVIEW
+────────────────────────────
+□ Copied .env.example to .env
+□ LIVE_MODE=SIM (first, for testing)
+□ ENABLE_LIVE_TRADING=false (initially)
+□ All risk limits reviewed and set conservatively:
+  □ DAILY_LOSS_LIMIT=___ (amount you can afford to lose daily)
+  □ MAX_TRADES_PER_DAY=___ (usually 3-5)
+  □ MAX_TRADES_PER_HOUR=___ (usually 1-2)
+  □ COOLDOWN_SECONDS=___ (usually 180+)
+  □ DEGRADE_STEPS=___ (usually 2-3)
+
+STEP 4: TESTING WITH PAPER TRADING
+───────────────────────────────────
+□ Ran RUN_LIVE_SIM.bat successfully
+□ System trading for at least 8 hours without errors
+□ Reviewed logs in ./data/logs/app.log for warnings
+□ Backtest results are positive (Sharpe >0.5, Win Rate >50%)
+□ Dashboard (if enabled) shows sensible decisions
+□ No crashes or disconnections observed
+
+STEP 5: HEALTH CHECK
+────────────────────
+□ Ran RUN_HEALTHCHECK.bat
+□ MT5 Connected: [status]
+□ Symbol available: [status]
+□ No critical warnings
+
+STEP 6: SAFETY MEASURES (REQUIRED FOR REAL MODE)
+──────────────────────────────────────────────────
+□ Created ./data/ directory (if it doesn't exist)
+□ Created ./data/LIVE_OK.txt (empty file - MANUAL confirmation)
+   How: In command prompt, run: echo. > ./data/LIVE_OK.txt
+□ Verified file exists: dir ./data/LIVE_OK.txt
+□ Chose LIVE_CONFIRM_KEY and set in .env (e.g., "my_secret_key_12345")
+□ This key prevents accidental REAL mode activation
+
+STEP 7: CONFIGURATION FOR REAL MODE
+────────────────────────────────────
+□ Updated .env with:
+  □ LIVE_MODE=REAL
+  □ ENABLE_LIVE_TRADING=true
+  □ LIVE_CONFIRM_KEY set to your chosen key
+  □ REQUIRE_LIVE_OK_FILE=true
+□ Started with CONSERVATIVE settings:
+  ┌─────────────────────────────────────────┐
+  │ DAILY_LOSS_LIMIT=500                    │
+  │ DAILY_PROFIT_TARGET=0                   │
+  │ MAX_TRADES_PER_DAY=5                    │
+  │ MAX_TRADES_PER_HOUR=2                   │
+  │ COOLDOWN_SECONDS=180                    │
+  │ DEGRADE_STEPS=3                         │
+  │ DEGRADE_FACTOR=0.5                      │
+  └─────────────────────────────────────────┘
+
+STEP 8: FINAL VALIDATION
+─────────────────────────
+□ Reviewed README.md V4 section
+□ Understand LIVE_OK.txt requirement (manual confirmation)
+□ Understand CIRCUIT BREAKER logic (can pause/degrade)
+□ Reviewed example losses and degradation behavior
+□ Confirmed LIVE_MODE=REAL in current .env
+□ Confirmed ./data/LIVE_OK.txt exists
+□ All MT5 orders show reasonable entry/exit prices in backtest
+
+STEP 9: MONITORING SETUP
+─────────────────────────
+□ Dashboard monitoring enabled (if available)
+□ Logs directory ./data/logs/ accessible
+□ Database ./data/db/trading.db exists and accessible
+□ Audit trail enabled for post-trade analysis
+□ Understood how to read audit reports
+
+STEP 10: EMERGENCY PROCEDURES
+──────────────────────────────
+□ Know how to create STOP.txt to halt system:
+   echo. > ./data/STOP.txt
+□ Know how to create PAUSE.txt to pause temporarily:
+   echo. > ./data/PAUSE.txt
+□ Know how to undo: delete the file
+□ Know how to run diagnostics:
+   RUN_DIAG_REPLAY.bat
+□ Have phone/emergency contacts for broker if needed
+
+════════════════════════════════════════════════════════════════════════════════
+
+FINAL CONFIRMATION
+───────────────────
+
+I have completed ALL steps above. I understand:
+
+✓ This system CAN lose real money
+✓ I cannot blame the system for my misconfiguration
+✓ Losses are MY responsibility
+✓ I should have tested thoroughly in LIVE_SIM first
+✓ I should start VERY SMALL and scale up after 2-4 weeks of profits
+
+Operator Name: ______________________________ Date: _______________
+
+════════════════════════════════════════════════════════════════════════════════
+
+IF YOU ARE NOT 100% CONFIDENT ABOUT ALL ABOVE STEPS:
+
+   >>> DO NOT RUN LIVE REAL <<<
+
+Start with LIVE_SIM.bat again and:
+1. Observe more market conditions
+2. Test with different configurations
+3. Backtest with more historical data
+4. Ask questions in forums/documentation
+
+════════════════════════════════════════════════════════════════════════════════
+"""
+
+print(__doc__)
