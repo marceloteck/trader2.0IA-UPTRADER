@@ -14,6 +14,7 @@ from datetime import datetime
 from typing import Optional, Dict, List
 from enum import Enum
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -134,8 +135,100 @@ class ExecutionEngine:
         self.fill_model = fill_model
         self.db_repo = db_repo
         self.settings = settings or {}
+
+        self._apply_live_mode_guard()
         
-        logger.info(f"ExecutionEngine initialized: mode={mode.value}")
+        logger.info(f"ExecutionEngine initialized: mode={self.mode.value}")
+
+    def _get_setting(self, key: str, default=None):
+        if isinstance(self.settings, dict):
+            if key in self.settings:
+                return self.settings.get(key, default)
+            return self.settings.get(key.upper(), default)
+        return getattr(self.settings, key, default)
+
+    def _apply_live_mode_guard(self) -> None:
+        live_mode = str(self._get_setting("live_mode", "SIM")).upper()
+        if live_mode != "REAL":
+            return
+
+        enable_live_trading = bool(self._get_setting("enable_live_trading", False))
+        live_confirm_key = str(self._get_setting("live_confirm_key", "")).strip()
+        require_live_ok_file = bool(self._get_setting("require_live_ok_file", False))
+        live_ok_filename = str(self._get_setting("live_ok_filename", "LIVE_OK.txt"))
+        live_ok_path = os.path.join("./data", live_ok_filename)
+        live_confirm_key_ok = bool(live_confirm_key) and live_confirm_key != "CHANGE_ME"
+
+        from src.execution.order_router import RouterSim, live_trade_guard
+
+        can_trade, missing = live_trade_guard(
+            enable_live_trading=enable_live_trading,
+            live_confirm_key=live_confirm_key,
+            require_live_ok_file=require_live_ok_file,
+            live_ok_filename=live_ok_filename,
+        )
+
+        if can_trade:
+            return
+
+        logger.warning(
+            "LIVE_MODE=REAL bloqueado. Fallback para SIM. Pendencias: %s",
+            ", ".join(missing),
+        )
+
+        self.mode = ExecutionMode.LIVE_SIM
+        self.order_router = RouterSim(
+            fill_model=self.fill_model,
+            position_tracker=self.position_tracker,
+            db_repo=self.db_repo,
+        )
+
+        details = {
+            "live_mode": live_mode,
+            "missing_requirements": missing,
+            "enable_live_trading": enable_live_trading,
+            "live_confirm_key_ok": live_confirm_key_ok,
+            "require_live_ok_file": require_live_ok_file,
+            "live_ok_path": live_ok_path,
+            "live_ok_present": os.path.exists(live_ok_path),
+        }
+
+        event = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "event_type": "live_mode_guard_block",
+            "details": details,
+            "action": "fallback_sim",
+        }
+
+        self._log_risk_event(event)
+        self._log_audit_trail(details)
+
+    def _log_risk_event(self, event: Dict) -> None:
+        if self.db_repo and hasattr(self.db_repo, "insert_risk_event"):
+            self.db_repo.insert_risk_event(event)
+            return
+        db_path = self._get_setting("db_path")
+        if db_path:
+            from src.db import repo
+
+            repo.insert_risk_event(db_path, event)
+
+    def _log_audit_trail(self, details: Dict) -> None:
+        trace = {
+            "run_id": "live_mode_guard",
+            "sequence": 0,
+            "timestamp": datetime.utcnow().isoformat(),
+            "event": "live_mode_guard_block",
+            "details": details,
+        }
+        if self.db_repo and hasattr(self.db_repo, "insert_audit_trail"):
+            self.db_repo.insert_audit_trail(trace)
+            return
+        db_path = self._get_setting("db_path")
+        if db_path:
+            from src.db import repo
+
+            repo.insert_audit_trail(db_path, trace)
     
     def execute(
         self,

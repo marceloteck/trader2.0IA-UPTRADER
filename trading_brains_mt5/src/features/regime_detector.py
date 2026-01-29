@@ -192,6 +192,24 @@ class RegimeDetector:
         
         # Range-bound detector: se preço oscila muito dentro da vela
         features["range_ratio"] = (df["high"] - df["low"]).iloc[-1] / (abs(df["close"].iloc[-1] - df["open"].iloc[-1]) + 1e-10)
+
+        # Micro padrões: corpo/caudas e volume
+        candle_range = (df["high"].iloc[-1] - df["low"].iloc[-1]) or 1e-9
+        candle_body = abs(df["close"].iloc[-1] - df["open"].iloc[-1])
+        upper_wick = df["high"].iloc[-1] - max(df["open"].iloc[-1], df["close"].iloc[-1])
+        lower_wick = min(df["open"].iloc[-1], df["close"].iloc[-1]) - df["low"].iloc[-1]
+        features["candle_body_ratio"] = float(candle_body / candle_range)
+        features["candle_wick_ratio"] = float((upper_wick + lower_wick) / candle_range)
+        if "tick_volume" in df.columns:
+            vol_roll = df["tick_volume"].rolling(20)
+            vol_mean = vol_roll.mean().iloc[-1]
+            vol_std = vol_roll.std().iloc[-1]
+            if vol_std and not pd.isna(vol_std) and vol_std > 0:
+                features["volume_zscore"] = float((df["tick_volume"].iloc[-1] - vol_mean) / vol_std)
+            else:
+                features["volume_zscore"] = 0.0
+        else:
+            features["volume_zscore"] = 0.0
         
         return features
 
@@ -206,6 +224,9 @@ class RegimeDetector:
         ma_slope = features.get("ma_slope", 0)
         rsi = features.get("rsi", 50)
         vol_std = features.get("volatility_std", 0)
+        body_ratio = features.get("candle_body_ratio", 0)
+        wick_ratio = features.get("candle_wick_ratio", 0)
+        volume_z = features.get("volume_zscore", 0)
         
         # Detectar por volatilidade primeiro
         if atr_pct > 3.0 or vol_std > 3.0:
@@ -235,6 +256,14 @@ class RegimeDetector:
         
         # Ajustar confiança por RSI extremos
         if rsi > 75 or rsi < 25:
+            confidence = min(1.0, confidence + 0.1)
+
+        # Micro-padrões: candles de indecisão favorecem RANGE
+        if wick_ratio > 0.6 and abs(trend_dir) < 0.03:
+            confidence = min(1.0, confidence + 0.1)
+
+        # Candles fortes + volume acima do normal favorecem tendência
+        if body_ratio > 0.6 and abs(trend_dir) > 0.03 and volume_z > 1.0:
             confidence = min(1.0, confidence + 0.1)
         
         return regime, confidence

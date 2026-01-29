@@ -23,10 +23,45 @@ mt5_client = None  # Lazy initialized
 
 @app.get("/status")
 def status():
+    live_confirm_key_ok = bool(settings.live_confirm_key.strip()) and settings.live_confirm_key != "CHANGE_ME"
+    live_ok_path = os.path.join("./data", settings.live_ok_filename)
+    live_ok_present = os.path.exists(live_ok_path)
+    live_ok_required = settings.require_live_ok_file
+    safety_locks = [
+        {
+            "id": "enable_live_trading",
+            "label": "ENABLE_LIVE_TRADING",
+            "active": not settings.enable_live_trading,
+        },
+        {
+            "id": "live_confirm_key",
+            "label": "LIVE_CONFIRM_KEY",
+            "active": not live_confirm_key_ok,
+        },
+        {
+            "id": "live_ok_file",
+            "label": settings.live_ok_filename,
+            "active": live_ok_required and not live_ok_present,
+            "required": live_ok_required,
+        },
+    ]
+    live_mode_requested = settings.live_mode.upper()
+    live_mode_effective = (
+        "REAL"
+        if live_mode_requested == "REAL" and all(not lock["active"] for lock in safety_locks)
+        else "SIM"
+    )
     return {
         "symbol": settings.symbol,
         "timeframes": settings.timeframes,
         "live_enabled": settings.enable_live_trading,
+        "live_mode": live_mode_requested,
+        "live_mode_effective": live_mode_effective,
+        "live_confirm_key_ok": live_confirm_key_ok,
+        "live_ok_required": live_ok_required,
+        "live_ok_present": live_ok_present,
+        "live_ok_path": live_ok_path,
+        "safety_locks": safety_locks,
     }
 
 

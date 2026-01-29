@@ -30,6 +30,52 @@ function formatDate(isoString) {
   return date.toLocaleDateString('pt-BR', { month: '2-digit', day: '2-digit' });
 }
 
+function updateSafetyStatus(status) {
+  const banner = document.getElementById('mode-banner');
+  const warning = document.getElementById('live-warning');
+  const locksList = document.getElementById('safety-locks');
+
+  if (banner) {
+    const effectiveMode = (status.live_mode_effective || status.live_mode || 'SIM').toUpperCase();
+    const isReal = effectiveMode === 'REAL';
+    banner.textContent = isReal ? 'REAL' : 'SIMULAÇÃO';
+    banner.classList.toggle('real', isReal);
+    banner.classList.toggle('sim', !isReal);
+  }
+
+  if (warning) {
+    if ((status.live_mode_effective || '').toUpperCase() === 'REAL') {
+      warning.textContent = '🚨 MODO REAL ATIVO - RISCO ALTO 🚨';
+      warning.style.animation = 'pulse 1s infinite';
+    } else {
+      warning.textContent = '';
+      warning.style.animation = 'none';
+    }
+  }
+
+  if (locksList) {
+    locksList.innerHTML = '';
+    const locks = status.safety_locks || [];
+    if (locks.length === 0) {
+      locksList.innerHTML = '<li class="lock-item">Sem dados de travas.</li>';
+      return;
+    }
+    locks.forEach(lock => {
+      const li = document.createElement('li');
+      li.className = 'lock-item';
+      const label = document.createElement('span');
+      label.textContent = lock.label;
+      const chip = document.createElement('span');
+      const active = Boolean(lock.active);
+      chip.className = `lock-chip ${active ? 'active' : 'ok'}`;
+      chip.textContent = active ? 'ATIVA' : 'OK';
+      li.appendChild(label);
+      li.appendChild(chip);
+      locksList.appendChild(li);
+    });
+  }
+}
+
 // ============================================================================
 // Symbol Management (L7)
 // ============================================================================
@@ -172,10 +218,8 @@ function loadRecentEvents(events) {
 
 async function loadLegacyData() {
   const status = await fetchJson('/status');
-  if (status && status.live_enabled) {
-    const warning = document.getElementById('live-warning');
-    warning.textContent = '🚨 MODO REAL ATIVO - RISCO ALTO 🚨';
-    warning.style.animation = 'pulse 1s infinite';
+  if (status) {
+    updateSafetyStatus(status);
   }
   
   const signals = await fetchJson('/signals?limit=10');

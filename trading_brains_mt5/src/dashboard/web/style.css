@@ -3,10 +3,35 @@ body {
   background: #0f111a;
   color: #f5f6fa;
   margin: 0;
+  padding-top: 48px;
 }
 
 .container {
   padding: 24px;
+}
+
+/* Mode Banner */
+.mode-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 1000;
+  text-align: center;
+  padding: 12px 16px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.mode-banner.sim {
+  background: #1f7a1f;
+  color: #e8ffe8;
+}
+
+.mode-banner.real {
+  background: #b71c1c;
+  color: #ffecec;
 }
 
 /* Header */
@@ -40,6 +65,60 @@ body {
   grid-template-columns: 1fr 2fr;
   gap: 20px;
   align-items: center;
+}
+
+/* Safety Panel */
+.safety-panel {
+  margin-top: 16px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid #3d4a6a;
+}
+
+.safety-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  color: #a8b5d8;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.safety-locks {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.lock-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #1b1f2b;
+  border: 1px solid #3d4a6a;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.lock-chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.lock-chip.active {
+  background: rgba(255, 59, 48, 0.2);
+  color: #ff3b30;
+}
+
+.lock-chip.ok {
+  background: rgba(52, 199, 89, 0.2);
+  color: #34c759;
 }
 
 /* Symbol Selector */
