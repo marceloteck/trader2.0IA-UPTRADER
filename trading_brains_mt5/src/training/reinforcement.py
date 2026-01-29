@@ -27,14 +27,19 @@ logger = logging.getLogger(__name__)
 class RLState:
     """Estado para treinamento RL"""
     regime: str
+    prev_regime: str
     hour: int
     volatility_level: str  # LOW, MEDIUM, HIGH
     trend_direction: str  # UP, DOWN, RANGE
     rsi_level: str  # OVERSOLD, NEUTRAL, OVERBOUGHT
+    last_action: str  # ENTER, SKIP, NONE
     
     def hash(self) -> str:
         """Gera hash do estado para indexação"""
-        state_str = f"{self.regime}_{self.hour}_{self.volatility_level}_{self.trend_direction}_{self.rsi_level}"
+        state_str = (
+            f"{self.regime}_{self.prev_regime}_{self.hour}_{self.volatility_level}_"
+            f"{self.trend_direction}_{self.rsi_level}_{self.last_action}"
+        )
         return hashlib.md5(state_str.encode()).hexdigest()
 
 
@@ -84,6 +89,8 @@ class LightReinforcementLearner:
         trend: float,
         rsi: float,
         base_confidence: float,
+        prev_regime: str | None = None,
+        last_action: str | None = None,
     ) -> RLAction:
         """
         Recomenda ação baseada em estado atual.
@@ -102,7 +109,7 @@ class LightReinforcementLearner:
         """
         
         # Discretizar estado
-        state = self._discretize_state(regime, hour, volatility, trend, rsi)
+        state = self._discretize_state(regime, hour, volatility, trend, rsi, prev_regime, last_action)
         state_hash = state.hash()
         
         # Incrementar visita
@@ -145,6 +152,8 @@ class LightReinforcementLearner:
         action_taken: str,  # "ENTER" ou "SKIP"
         reward: float,  # PnL or penalty
         next_state_hash: Optional[str] = None,
+        prev_regime: str | None = None,
+        last_action: str | None = None,
     ) -> None:
         """
         Atualiza Q-table com experiência.
@@ -159,7 +168,7 @@ class LightReinforcementLearner:
         """
         
         # Discretizar estado atual
-        state = self._discretize_state(regime, hour, volatility, trend, rsi)
+        state = self._discretize_state(regime, hour, volatility, trend, rsi, prev_regime, last_action)
         state_hash = state.hash()
         
         # Inicializar Q-values se novo estado
@@ -198,6 +207,8 @@ class LightReinforcementLearner:
         volatility: float,
         trend: float,
         rsi: float,
+        prev_regime: Optional[str] = None,
+        last_action: Optional[str] = None,
     ) -> RLState:
         """Discretiza variáveis contínuas em estado discreto"""
         
@@ -225,12 +236,16 @@ class LightReinforcementLearner:
         else:
             rsi_level = "NEUTRAL"
         
+        prev_regime_value = prev_regime or "UNKNOWN"
+        last_action_value = last_action or "NONE"
         return RLState(
             regime=regime,
+            prev_regime=prev_regime_value,
             hour=hour,
             volatility_level=vol_level,
             trend_direction=trend_level,
             rsi_level=rsi_level,
+            last_action=last_action_value,
         )
 
     def _load_q_table(self) -> None:

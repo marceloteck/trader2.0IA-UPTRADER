@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 
 import numpy as np
 import pandas as pd
@@ -29,6 +29,7 @@ def run_backtest(
     min_lot: float = 1.0,
     lot_step: float = 1.0,
     round_level_step: float = 100.0,
+    fill_model: Optional[object] = None,
 ) -> BacktestResult:
     boss = BossBrain()
     trades: List[Dict[str, float]] = []
@@ -59,8 +60,20 @@ def run_backtest(
                 signal,
                 float(signal.get("score", 0.0)),
             )
-        entry = decision.entry + (spread / 2 if decision.action == "BUY" else -spread / 2)
-        entry = _apply_slippage(entry, decision.action, slippage)
+        if fill_model:
+            entry_fill = fill_model.calculate_fill(
+                requested_price=decision.entry,
+                side=decision.action,
+                atr=float(features.get("atr", 0.0)),
+                symbol=symbol,
+                is_live=False,
+            )
+            if not entry_fill.success:
+                continue
+            entry = entry_fill.filled_price
+        else:
+            entry = decision.entry + (spread / 2 if decision.action == "BUY" else -spread / 2)
+            entry = _apply_slippage(entry, decision.action, slippage)
         sl = decision.sl
         tp = decision.tp1
         future = df.iloc[idx + 1 : idx + 30]
@@ -83,6 +96,17 @@ def run_backtest(
         if exit_price is None:
             exit_price = future.iloc[-1]["close"] if not future.empty else entry
         exit_price = exit_price - (spread / 2 if decision.action == "BUY" else -spread / 2)
+        if fill_model:
+            close_side = "SELL" if decision.action == "BUY" else "BUY"
+            exit_fill = fill_model.calculate_fill(
+                requested_price=exit_price,
+                side=close_side,
+                atr=float(features.get("atr", 0.0)),
+                symbol=symbol,
+                is_live=False,
+            )
+            if exit_fill.success:
+                exit_price = exit_fill.filled_price
         pnl = exit_price - entry if decision.action == "BUY" else entry - exit_price
         trades.append(
             {

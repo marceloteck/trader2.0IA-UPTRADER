@@ -23,6 +23,8 @@ from .dashboard.api import app as dashboard_app
 from .reports.daily_report import DailyReporter
 from .reports.weekly_report import WeeklyReporter
 from .version import get_build_info, mask_sensitive_config
+from .execution.fill_model import FillModel
+from .execution.settings_adapter import build_execution_settings
 
 
 def _parse_args() -> argparse.Namespace:
@@ -117,6 +119,8 @@ def main() -> None:
         if df.empty:
             logger.error("No data for backtest")
             return
+        engine_settings = build_execution_settings(settings)
+        fill_model = FillModel(engine_settings)
         result = run_backtest(
             settings.symbol,
             df,
@@ -128,6 +132,7 @@ def main() -> None:
             settings.min_lot,
             settings.lot_step,
             settings.round_level_step,
+            fill_model=fill_model,
         )
         metrics = save_report(result.trades, result.pnls, "./data/exports/reports")
         logger.info("Backtest finished: %s", metrics)

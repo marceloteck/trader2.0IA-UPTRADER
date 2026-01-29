@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import logging
 from dataclasses import dataclass
 from typing import List
 
@@ -376,6 +377,7 @@ def _get_bool(value: str) -> bool:
 
 def load_settings() -> Settings:
     load_dotenv()
+    logger = logging.getLogger(__name__)
 
     def get_env(key: str) -> str:
         return os.getenv(key, _DEF[key])
@@ -383,6 +385,18 @@ def load_settings() -> Settings:
     timeframes = [tf.strip() for tf in get_env("TIMEFRAMES").split(",") if tf.strip()]
     if not timeframes:
         timeframes = DEFAULT_TIMEFRAMES
+
+    enable_live_trading = _get_bool(get_env("ENABLE_LIVE_TRADING"))
+    live_confirm_key = get_env("LIVE_CONFIRM_KEY")
+    live_mode = get_env("LIVE_MODE")
+    require_live_ok_file = _get_bool(get_env("REQUIRE_LIVE_OK_FILE"))
+    live_ok_filename = get_env("LIVE_OK_FILENAME")
+
+    if not enable_live_trading:
+        logger.warning("======================================================")
+        logger.warning("============== MODO REAL DESABILITADO ================")
+        logger.warning("======================================================")
+        live_mode = "SIM"
 
     return Settings(
         symbol=get_env("SYMBOL"),
@@ -395,8 +409,8 @@ def load_settings() -> Settings:
         point_value=float(get_env("POINT_VALUE")),
         min_lot=float(get_env("MIN_LOT")),
         lot_step=float(get_env("LOT_STEP")),
-        enable_live_trading=_get_bool(get_env("ENABLE_LIVE_TRADING")),
-        live_confirm_key=get_env("LIVE_CONFIRM_KEY"),
+        enable_live_trading=enable_live_trading,
+        live_confirm_key=live_confirm_key,
         daily_loss_limit=float(get_env("DAILY_LOSS_LIMIT")),
         max_trades_per_day=int(get_env("MAX_TRADES_PER_DAY")),
         max_consec_losses=int(get_env("MAX_CONSEC_LOSSES")),
@@ -410,9 +424,9 @@ def load_settings() -> Settings:
         enable_dashboard_control=_get_bool(get_env("ENABLE_DASHBOARD_CONTROL")),
         
         # V4
-        live_mode=get_env("LIVE_MODE"),
-        require_live_ok_file=_get_bool(get_env("REQUIRE_LIVE_OK_FILE")),
-        live_ok_filename=get_env("LIVE_OK_FILENAME"),
+        live_mode=live_mode,
+        require_live_ok_file=require_live_ok_file,
+        live_ok_filename=live_ok_filename,
         fallback_on_mt5_error=get_env("FALLBACK_ON_MT5_ERROR"),
         cooldown_seconds=int(get_env("COOLDOWN_SECONDS")),
         max_trades_per_hour=int(get_env("MAX_TRADES_PER_HOUR")),
@@ -544,4 +558,3 @@ def load_settings() -> Settings:
         offline_max_minutes=int(get_env("OFFLINE_MAX_MINUTES")),
         offline_cooldown_seconds=int(get_env("OFFLINE_COOLDOWN_SECONDS")),
     )
-

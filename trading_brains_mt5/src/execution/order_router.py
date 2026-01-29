@@ -13,9 +13,30 @@ from datetime import datetime
 from typing import Optional, Dict, List
 from enum import Enum
 import logging
+import os
 import time
 
 logger = logging.getLogger(__name__)
+
+
+def live_trade_guard(
+    *,
+    enable_live_trading: bool,
+    live_confirm_key: str,
+    require_live_ok_file: bool,
+    live_ok_filename: str,
+    base_path: str = "./data"
+) -> tuple[bool, List[str]]:
+    """Validate live trading guard rails."""
+    missing: List[str] = []
+    if not enable_live_trading:
+        missing.append("ENABLE_LIVE_TRADING=true")
+    if not live_confirm_key.strip() or live_confirm_key == "CHANGE_ME":
+        missing.append("LIVE_CONFIRM_KEY correta")
+    live_ok_path = os.path.join(base_path, live_ok_filename)
+    if require_live_ok_file and not os.path.exists(live_ok_path):
+        missing.append(f"{live_ok_filename} presente")
+    return len(missing) == 0, missing
 
 
 class OrderStatus(Enum):
