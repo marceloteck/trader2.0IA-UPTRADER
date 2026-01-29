@@ -116,11 +116,11 @@ class Settings:
     min_global_confidence: float
     
     # L3: Regime Detection & Transitions
-    regime_enabled: bool = True
-    transition_enabled: bool = True
+    regime_enabled: bool
+    transition_enabled: bool
     
     # L4: LIQUIDITY PROFUNDA
-    liquidity_enabled: bool = True
+    liquidity_enabled: bool
     liquidity_sources: str  # VWAP_DAILY,PIVOT_M5,WYCKOFF,ROUND,etc
     min_liquidity_strength: float  # 0-1, minimum zone strength to consider
     max_level_touches: int  # Max number of tests before level considered "spent"
